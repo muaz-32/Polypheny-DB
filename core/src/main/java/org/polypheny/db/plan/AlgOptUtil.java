@@ -1362,6 +1362,14 @@ public abstract class AlgOptUtil {
      * @return Plan
      */
     public static String dumpPlan( String header, AlgNode alg, ExplainFormat format, ExplainLevel detailLevel ) {
+        //TODO: Delete lines for testing PolyAlg serialization
+        StringBuilder sb = new StringBuilder();
+        alg.buildPolyAlgebra( sb );
+        System.out.println(header);
+        System.out.println(sb);
+        System.out.println();
+
+
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter( sw );
         if ( !header.equals( "" ) ) {
