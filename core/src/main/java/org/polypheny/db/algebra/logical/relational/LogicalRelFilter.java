@@ -47,9 +47,6 @@ import org.polypheny.db.algebra.core.relational.RelAlg;
 import org.polypheny.db.algebra.metadata.AlgMdCollation;
 import org.polypheny.db.algebra.metadata.AlgMdDistribution;
 import org.polypheny.db.algebra.metadata.AlgMetadataQuery;
-import org.polypheny.db.algebra.polyalg.arguments.AnyArg;
-import org.polypheny.db.algebra.polyalg.arguments.ListArg;
-import org.polypheny.db.algebra.polyalg.arguments.PolyAlgArg;
 import org.polypheny.db.algebra.polyalg.arguments.PolyAlgArgs;
 import org.polypheny.db.algebra.polyalg.arguments.RexArg;
 import org.polypheny.db.plan.AlgCluster;
@@ -135,7 +132,7 @@ public final class LogicalRelFilter extends Filter implements RelAlg {
     public PolyAlgArgs collectAttributes() {
         PolyAlgArgs args = new PolyAlgArgs( getPolyAlgDeclaration() );
 
-        args.put( 0, new RexArg( condition, this ) );
+        args.put( 0, new RexArg( condition ) );
         return args;
     }
 

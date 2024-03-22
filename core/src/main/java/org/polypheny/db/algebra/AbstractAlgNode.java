@@ -338,7 +338,7 @@ public abstract class AbstractAlgNode implements AlgNode {
     public void buildPolyAlgebra( StringBuilder sb ) {
         PolyAlgDeclaration decl = getPolyAlgDeclaration();
         sb.append( decl.opName );
-        sb.append( collectAttributes().serializeArguments() );
+        sb.append( collectAttributes().serializeArguments( this ) );
 
         int size = getInputs().size();
         if ( size == 0 ) {
