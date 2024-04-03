@@ -50,6 +50,7 @@ import org.polypheny.db.catalog.entity.logical.LogicalGraph;
 import org.polypheny.db.catalog.entity.logical.LogicalNamespace;
 import org.polypheny.db.catalog.entity.logical.LogicalTable;
 import org.polypheny.db.catalog.exceptions.GenericRuntimeException;
+import org.polypheny.db.catalog.logistic.DataModel;
 import org.polypheny.db.catalog.logistic.EntityType;
 import org.polypheny.db.information.InformationManager;
 import org.polypheny.db.information.InformationObserver;
@@ -82,6 +83,7 @@ import org.polypheny.db.webui.models.requests.UIRequest;
 import org.polypheny.db.webui.models.results.DocResult;
 import org.polypheny.db.webui.models.results.GraphResult;
 import org.polypheny.db.webui.models.results.GraphResult.GraphResultBuilder;
+import org.polypheny.db.webui.models.results.QueryType;
 import org.polypheny.db.webui.models.results.RelationalResult;
 import org.polypheny.db.webui.models.results.Result;
 import org.polypheny.db.webui.models.results.Result.ResultBuilder;
@@ -140,11 +142,11 @@ public class LanguageCrud {
 
     public static List<? extends Result<?, ?>> anyQueryResult( QueryContext context, UIRequest request ) {
         context = context.getLanguage().limitRemover().apply( context );
-        Transaction transaction = context.getTransactionManager().startTransaction( context.getUserId(), Catalog.defaultNamespaceId, context.isAnalysed(), context.getOrigin() );
+        Transaction transaction = !context.getTransactions().isEmpty() ? context.getTransactions().get( 0 ) : context.getTransactionManager().startTransaction( context.getUserId(), Catalog.defaultNamespaceId, context.isAnalysed(), context.getOrigin() );
         transaction.setUseCache( context.isUsesCache() );
         attachAnalyzerIfSpecified( context, crud, transaction );
 
-        List<ExecutedContext> executedContexts = LanguageManager.getINSTANCE().anyQuery( context.addTransaction( transaction ), transaction.createStatement() );
+        List<ExecutedContext> executedContexts = LanguageManager.getINSTANCE().anyQuery( context.addTransaction( transaction ) );
 
         List<Result<?, ?>> results = new ArrayList<>();
         TriFunction<ExecutedContext, UIRequest, Statement, ResultBuilder<?, ?, ?, ?>> builder = REGISTER.get( context.getLanguage() );
@@ -214,13 +216,13 @@ public class LanguageCrud {
                         .namespaceId( getNamespaceIdOrDefault( namespace ) )
                         .transactionManager( manager )
                         .informationTarget( i -> i.setSession( session ) )
-                        .build(), transaction.createStatement() ).get( 0 );
+                        .build(), transaction ).get( 0 );
 
         if ( context.getException().isPresent() ) {
             return new PolyGraph( PolyMap.of( new HashMap<>() ), PolyMap.of( new HashMap<>() ) );
         }
 
-        ResultIterator iterator = context.execute( transaction.createStatement() ).getIterator();
+        ResultIterator iterator = context.execute( context.getStatement() ).getIterator();
         List<List<PolyValue>> res = iterator.getNextBatch();
 
         try {
@@ -230,7 +232,11 @@ public class LanguageCrud {
             throw new GenericRuntimeException( "Error while committing graph retrieval query." );
         }
 
-        return res.get( 0 ).get( 0 ).asGraph();
+        if ( res.size() == 1 && res.get( 0 ).size() == 1 && res.get( 0 ).get( 0 ).isGraph() ) {
+            return res.get( 0 ).get( 0 ).asGraph();
+        }
+
+        throw new GenericRuntimeException( "Error while retrieving graph." );
     }
 
 
@@ -314,6 +320,7 @@ public class LanguageCrud {
                 .namespace( request.namespace )
                 .language( context.getQuery().getLanguage() )
                 .affectedTuples( data.size() )
+                .queryType( QueryType.from( context.getImplementation().getKind() ) )
                 .hasMore( hasMoreRows )
                 .xid( statement.getTransaction().getXid().toString() )
                 .query( context.getQuery().getQuery() );
@@ -372,6 +379,7 @@ public class LanguageCrud {
                     .header( context.getIterator().getImplementation().tupleType.getFields().stream().map( FieldDefinition::of ).toArray( FieldDefinition[]::new ) )
                     .query( context.getQuery().getQuery() )
                     .language( context.getQuery().getLanguage() )
+                    .queryType( QueryType.from( context.getImplementation().getKind() ) )
                     .dataModel( context.getIterator().getImplementation().getDataModel() )
                     .affectedTuples( data.size() )
                     .xid( statement.getTransaction().getXid().toString() )
@@ -402,10 +410,11 @@ public class LanguageCrud {
             boolean hasMoreRows = context.getIterator().hasMoreRows();
 
             return DocResult.builder()
-                    .header( context.getIterator().getImplementation().tupleType.getFields().stream().map( FieldDefinition::of ).toArray( FieldDefinition[]::new ) )
+                    .header( new FieldDefinition[]{ FieldDefinition.builder().name( "Document" ).dataType( DataModel.DOCUMENT.name() ).build() } )
                     .data( data.stream().map( d -> d.get( 0 ).toJson() ).toArray( String[]::new ) )
                     .query( context.getQuery().getQuery() )
                     .language( context.getQuery().getLanguage() )
+                    .queryType( QueryType.from( context.getImplementation().getKind() ) )
                     .hasMore( hasMoreRows )
                     .affectedTuples( data.size() )
                     .xid( statement.getTransaction().getXid().toString() )

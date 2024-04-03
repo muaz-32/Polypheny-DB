@@ -104,6 +104,11 @@ public final class LogicalRelFilter extends Filter implements RelAlg {
     }
 
 
+    @Override
+    public ImmutableSet<CorrelationId> getVariablesSet() {
+        return variablesSet;
+    }
+
 
     @Override
     public LogicalRelFilter copy( AlgTraitSet traitSet, AlgNode input, RexNode condition ) {
